@@ -11,7 +11,7 @@ def hello() -> str:
     Returns:
         A string with the words 'Hello World!'.
     """
-    return "Hello World!"
+    return "Hello World! This is Order Management Service"
 
 
 if __name__ == "__main__":
