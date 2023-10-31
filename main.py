@@ -1,15 +1,9 @@
-from fastapi import FastAPI, Response
+from flask import Flask
 
-# I like to launch directly and not use the standard FastAPI startup
-import uvicorn
+app = Flask(__name__)
 
-app = FastAPI()
-
-
-@app.get("/")
-async def root():
-    return {"message": "Hello World. This is Order Management Service!"}
+@app.route('/')
+def hello():
+    return "Hello World. This is Order Management Service!"
 
 
-if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8011)
