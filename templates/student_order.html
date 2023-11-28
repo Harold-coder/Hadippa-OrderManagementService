@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Place Order</title>
+</head>
+<body>
+    <h1>Place Your Order</h1>
+    <form action="/student_order" method="post">
+        Student UNI: <input type="text" name="student_uni"><br>
+        Food Item:
+        <select name="inventory_id">
+            {% for id, item in food_items %}
+            <option value="{{ id }}">{{ item }}</option>
+            {% endfor %}
+        </select><br>
+        Quantity: <input type="number" name="quantity"><br>
+        <input type="submit" value="Submit Order">
+    </form>
+</body>
+</html>

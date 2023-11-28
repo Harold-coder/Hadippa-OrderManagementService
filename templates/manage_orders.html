@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Manage Orders</title>
+</head>
+<body>
+    <h1>Manage Orders</h1>
+    <table>
+        <tr>
+            <th>Order ID</th>
+            <th>Student UNI</th>
+            <th>Inventory ID</th>
+            <th>Quantity</th>
+            <th>Actions</th>
+        </tr>
+        {% for order in orders %}
+        <tr>
+            <form action="/manage_orders" method="post">
+                <td>{{ order[0] }}</td>
+                <td>{{ order[1] }}</td>
+                <td>{{ order[2] }}</td>
+                <td><input type="text" name="new_quantity" value="{{ order[3] }}"></td>
+                <td>
+                    <input type="hidden" name="order_id" value="{{ order[0] }}">
+                    <input type="submit" name="action" value="update">
+                    <input type="submit" name="action" value="delete">
+                </td>
+            </form>
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>
