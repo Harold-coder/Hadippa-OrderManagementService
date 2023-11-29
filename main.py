@@ -51,11 +51,13 @@ def student_order():
     cursor.close()
     conn.close()
     return render_template('student_order.html', food_items=food_items)
-
 @app.route('/manage_orders', methods=['GET', 'POST'])
 def manage_orders():
     conn = get_db_connection()
     cursor = conn.cursor()
+
+    # Check if there's a search query
+    search_uni = request.args.get('search_uni')
 
     if request.method == 'POST':
         action = request.form.get('action')
@@ -68,9 +70,15 @@ def manage_orders():
             cursor.execute("DELETE FROM Orders WHERE OrderID = %s", (order_id,))
         conn.commit()
 
-    cursor.execute("SELECT * FROM Orders")
-    orders = cursor.fetchall()
+    # Modify the SQL query to filter by UNI if there's a search query
+    if search_uni:
+        cursor.execute("SELECT * FROM Orders WHERE StudentUNI = %s", (search_uni,))
+    else:
+        cursor.execute("SELECT * FROM Orders")
 
+    orders = cursor.fetchall()
+    cursor.close()
+    conn.close()
     return render_template('manage_orders.html', orders=orders)
 
 @app.route("/")

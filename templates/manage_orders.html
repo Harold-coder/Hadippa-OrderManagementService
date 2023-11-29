@@ -5,7 +5,16 @@
 </head>
 <body>
     <h1>Manage Orders</h1>
+
+    <!-- Search Form -->
+    <form action="/manage_orders" method="get">
+        <label for="search_uni">Search by Student UNI:</label>
+        <input type="text" id="search_uni" name="search_uni">
+        <input type="submit" value="Search">
+    </form>
+
     <table>
+        <!-- Table Headers -->
         <tr>
             <th>Order ID</th>
             <th>Student UNI</th>
@@ -13,6 +22,7 @@
             <th>Quantity</th>
             <th>Actions</th>
         </tr>
+        <!-- Table Rows -->
         {% for order in orders %}
         <tr>
             <form action="/manage_orders" method="post">
