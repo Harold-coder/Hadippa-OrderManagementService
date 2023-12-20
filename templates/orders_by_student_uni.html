@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{% if student_uni %}Orders for Student UNI {{ student_uni }}{% else %}All Orders{% endif %}</title>
+</head>
+<body>
+    <h1>{% if student_uni %}Orders for Student UNI: {{ student_uni }}{% else %}All Orders{% endif %}</h1>
+    {% if student_orders %}
+        <table border="1">
+            <tr>
+                <th>Order ID</th>
+                <th>Student UNI</th>
+                <th>Inventory ID</th>
+                <th>Quantity</th>
+                <th>Total Price</th>
+            </tr>
+            {% for order in student_orders %}
+            <tr>
+                <td>{{ order[0] }}</td>
+                <td>{{ order[1] }}</td>
+                <td>{{ order[2] }}</td>
+                <td>{{ order[3] }}</td>
+                <td>{{ order[4] }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+    {% else %}
+        <p>No orders found for this student.</p>
+    {% endif %}
+</body>
+</html>

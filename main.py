@@ -81,9 +81,56 @@ def manage_orders():
     conn.close()
     return render_template('manage_orders.html', orders=orders)
 
+
+@app.route("/manage_orders/order_id", defaults={'order_id': None})
+@app.route("/manage_orders/order_id/<int:order_id>")
+def view_order(order_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    if order_id is not None:
+        cursor.execute("SELECT * FROM Orders WHERE OrderID = %s", (order_id,))
+    else:
+        cursor.execute("SELECT * FROM Orders")
+    order_items = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+
+    if not order_items:
+        return "No items found for this order", 404
+    
+    #print(order_items)
+
+    return render_template('view_order.html', order_items=order_items, order_id=order_id)
+
+@app.route("/manage_orders/student_uni", defaults={'student_uni': None})
+@app.route("/manage_orders/student_uni/<student_uni>")
+def orders_by_student_uni(student_uni):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    if student_uni is not None:
+        cursor.execute("SELECT * FROM Orders WHERE StudentUNI = %s", (student_uni,))
+    else:
+        cursor.execute("SELECT * FROM Orders")
+    student_orders = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+
+    if not student_orders:
+        return "No orders found for this student", 404
+
+    return render_template('orders_by_student_uni.html', student_orders=student_orders, student_uni=student_uni)
+
+
+
 @app.route("/")
 def index():
     return render_template('index.html')
+
+
 
 
 # ... (other routes and functions)
