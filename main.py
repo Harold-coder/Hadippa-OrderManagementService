@@ -1,14 +1,13 @@
-# Continue from your existing imports
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, request, jsonify
 import psycopg2
+from psycopg2.extras import RealDictCursor
 from datetime import datetime
+from decimal import Decimal
 
 app = Flask(__name__)
 
-# ... (existing functions and routes)
-
+# Function to establish a database connection
 def get_db_connection():
-    # Use your existing database connection details
     connection = psycopg2.connect(
         host='db-cc.co4twflu4ebv.us-east-1.rds.amazonaws.com',
         port=5432,
@@ -18,104 +17,149 @@ def get_db_connection():
     )
     return connection
 
-@app.route('/student_order', methods=['GET', 'POST'])
-def student_order():
+# Helper function to convert Decimal types to strings for JSON serialization
+def convert_decimal_to_float(data):
+    for row in data:
+        for key, value in row.items():
+            if isinstance(value, Decimal):
+                row[key] = float(value)
+    return data
+
+@app.route('/get_orders', methods=['GET'])
+def get_orders():
+    # Retrieve query parameters for uni and order_id (if they exist)
+    uni = request.args.get('uni')
+    order_id = request.args.get('order_id')
+
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    
+    # Construct the base query
+    query = "SELECT * FROM Orders"
+    query_conditions = []
+    query_params = []
+    
+    # Add conditions to the query based on the provided parameters
+    if uni:
+        query_conditions.append("StudentUNI = %s")
+        query_params.append(uni)
+    if order_id:
+        query_conditions.append("OrderID = %s")
+        query_params.append(order_id)
+    
+    # Combine conditions into the query if they exist
+    if query_conditions:
+        query += " WHERE " + " AND ".join(query_conditions)
+    
+    # Execute the query
+    cursor.execute(query, query_params)
+    orders = cursor.fetchall()
+    
+    cursor.close()
+    conn.close()
+    
+    # Convert Decimal to float for JSON serialization
+    orders = convert_decimal_to_float(orders)
+    
+    # Return the orders as a JSON response
+    return jsonify(orders)
+
+# Endpoint for placing a new order
+@app.route('/place_order', methods=['POST'])
+def place_order():
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    if request.method == 'POST':
-        student_uni = request.form['student_uni']
-        inventory_id = request.form['inventory_id']
-        quantity = request.form['quantity']
+    # Handle POST request for placing a new order
+    student_uni = request.form.get('student_uni')
+    inventory_id = request.form.get('inventory_id')
+    quantity = request.form.get('quantity')
 
-        # Calculate total price
-        cursor.execute("SELECT Price FROM Inventory WHERE InventoryID = %s", (inventory_id,))
-        price_per_item = cursor.fetchone()[0]
-        total_price = price_per_item * int(quantity)
+    # Fetch price per item from Inventory and calculate total price
+    cursor.execute("SELECT Price FROM Inventory WHERE InventoryID = %s", (inventory_id,))
+    price_per_item = cursor.fetchone()[0]
+    total_price = price_per_item * int(quantity)
 
-        # Fetch the current maximum OrderID
-        cursor.execute("SELECT MAX(OrderID) FROM Orders")
-        max_order_id = cursor.fetchone()[0]
-        new_order_id = max_order_id + 1 if max_order_id else 1
+    # Fetch the next OrderID by finding the current maximum OrderID
+    cursor.execute("SELECT MAX(OrderID) FROM Orders")
+    max_order_id = cursor.fetchone()[0]
+    new_order_id = max_order_id + 1 if max_order_id else 1
 
-        cursor.execute(
-            "INSERT INTO Orders (OrderID, StudentUNI, InventoryID, OrderQuantity, TotalPrice) VALUES (%s, %s, %s, %s, %s)",
-            (new_order_id, student_uni, inventory_id, quantity, total_price))
-        conn.commit()
+    # Insert the new order into the Orders table
+    cursor.execute(
+        "INSERT INTO Orders (OrderID, StudentUNI, InventoryID, OrderQuantity, TotalPrice) VALUES (%s, %s, %s, %s, %s)",
+        (new_order_id, student_uni, inventory_id, quantity, total_price))
+    conn.commit()
+
+    cursor.close()
+    conn.close()
+    return jsonify({"success": "Order placed successfully"})
+
+# Endpoint for deleting an order
+@app.route('/delete_order', methods=['POST'])
+def delete_order():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # Handle POST request for deleting an order
+    order_id = request.form.get('order_id')
+
+    # Check if the order ID is provided
+    if not order_id:
         cursor.close()
         conn.close()
-        return redirect(url_for('student_order'))
+        return jsonify({"error": "Order ID is required"}), 400
 
-    cursor.execute("SELECT InventoryID, FoodItem FROM Inventory")
-    food_items = cursor.fetchall()
+    # Execute the query to delete the order
+    cursor.execute("DELETE FROM Orders WHERE OrderID = %s", (order_id,))
+    deleted_rows = cursor.rowcount  # Get the number of rows affected
+
+    # If no rows are affected, the order does not exist
+    if deleted_rows == 0:
+        conn.close()
+        return jsonify({"error": "Order not found"}), 404
+
+    # Commit the transaction and close the connection
+    conn.commit()
     cursor.close()
     conn.close()
-    return render_template('student_order.html', food_items=food_items)
-@app.route('/manage_orders', methods=['GET', 'POST'])
-def manage_orders():
+
+    # Return a success message
+    return jsonify({"success": "Order deleted successfully"})
+
+
+@app.route('/update_order', methods=['POST'])
+def update_order():
     conn = get_db_connection()
-    cursor = conn.cursor()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
 
-    # Check if there's a search query
-    search_uni = request.args.get('search_uni')
+    # Handle POST request for updating an order
+    order_id = request.form.get('order_id')
+    new_quantity = request.form.get('new_quantity')
 
-    if request.method == 'POST':
-        action = request.form.get('action')
-        order_id = request.form.get('order_id')
+    # Validate that the required fields are provided
+    if not order_id or not new_quantity:
+        cursor.close()
+        conn.close()
+        return jsonify({"error": "Order ID and new quantity must be provided"}), 400
 
-        if action == 'update':
-            new_quantity = request.form['new_quantity']
-            cursor.execute("UPDATE Orders SET OrderQuantity = %s WHERE OrderID = %s", (new_quantity, order_id))
-        elif action == 'delete':
-            cursor.execute("DELETE FROM Orders WHERE OrderID = %s", (order_id,))
-        conn.commit()
+    # Update order quantity
+    cursor.execute("UPDATE Orders SET OrderQuantity = %s WHERE OrderID = %s", (new_quantity, order_id))
+    updated_rows = cursor.rowcount  # Get the number of rows affected
 
-    # Modify the SQL query to filter by UNI if there's a search query
-    if search_uni:
-        cursor.execute("SELECT * FROM Orders WHERE StudentUNI = %s", (search_uni,))
-    else:
-        cursor.execute("SELECT * FROM Orders")
+    # If no rows are affected, the order does not exist
+    if updated_rows == 0:
+        conn.close()
+        return jsonify({"error": "Order not found"}), 404
 
-    orders = cursor.fetchall()
-    cursor.close()
-    conn.close()
-    return render_template('manage_orders.html', orders=orders)
-
-
-@app.route("/manage_orders", defaults={'order_id': None, 'student_uni': None})
-@app.route("/manage_orders/<int:order_id>", defaults={'student_uni': None})
-@app.route("/manage_orders/<student_uni>", defaults={'order_id': None})
-def view_order(order_id, student_uni):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
-    if order_id is not None:
-        cursor.execute("SELECT * FROM Orders WHERE OrderID = %s", (order_id,))
-    elif student_uni is not None:
-        cursor.execute("SELECT * FROM Orders WHERE StudentUNI = %s", (student_uni,))
-    else:
-        cursor.execute("SELECT * FROM Orders")
-
-    order_items = cursor.fetchall()
-
+    # Commit changes and close connection
+    conn.commit()
     cursor.close()
     conn.close()
 
-    if not order_items:
-        return "No orders found", 404
+    # Return a success response
+    return jsonify({"success": "Order updated successfully"})
 
-    return render_template('view_order.html', order_items=order_items, order_id=order_id, student_uni=student_uni)
-
-
-
-@app.route("/")
-def index():
-    return render_template('index.html')
-
-
-
-
-# ... (other routes and functions)
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, host='0.0.0.0', port=8012)
