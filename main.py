@@ -1,10 +1,13 @@
 from flask import Flask, request, jsonify
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
+import jwt
 
 app = Flask(__name__)
+SECRET_KEY = "hadippa"
+
 
 # Function to establish a database connection
 def get_db_connection():
@@ -162,6 +165,35 @@ def update_order():
 
     # Return a success response
     return jsonify({"success": "Order updated successfully"})
+
+
+@app.route("/")
+def index():
+    return jsonify({"message": "Welcome to the Order Management API Hosted on Google Cloud!"})
+
+@app.route('/token', methods=['GET'])
+def get_token():
+    try:
+        token = jwt.encode({'user': 'test_user', 'exp': datetime.utcnow() + timedelta(minutes=30)}, SECRET_KEY, algorithm="HS256")
+        return jsonify({'token': token})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/protected', methods=['GET'])
+def protected():
+    token = request.headers.get('Authorization')
+    if token and token.startswith('Bearer '):
+        token = token[7:]  # Remove 'Bearer ' prefix
+    else:
+        return jsonify({'message': 'Token is missing or invalid!'}), 403
+
+    try:
+        data = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        return jsonify({'message': 'Protected content', 'user': data['user']})
+    except jwt.ExpiredSignatureError:
+        return jsonify({'message': 'Token has expired!'}), 403
+    except jwt.InvalidTokenError:
+        return jsonify({'message': 'Invalid token!'}), 403
 
 
 if __name__ == '__main__':
