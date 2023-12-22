@@ -70,10 +70,11 @@ def place_order():
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    # Handle POST request for placing a new order
-    student_uni = request.form.get('student_uni')
-    inventory_id = request.form.get('inventory_id')
-    quantity = request.form.get('quantity')
+    # Get data from JSON request body
+    data = request.get_json()
+    student_uni = data.get('student_uni')
+    inventory_id = data.get('inventory_id')
+    quantity = data.get('quantity', 0)
 
     # Fetch price per item from Inventory and calculate total price
     cursor.execute("SELECT Price FROM Inventory WHERE InventoryID = %s", (inventory_id,))
@@ -101,8 +102,9 @@ def delete_order():
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    # Handle POST request for deleting an order
-    order_id = request.form.get('order_id')
+    # Get data from JSON request body
+    data = request.get_json()
+    order_id = data.get('order_id')
 
     # Check if the order ID is provided
     if not order_id:
@@ -133,9 +135,10 @@ def update_order():
     conn = get_db_connection()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
 
-    # Handle POST request for updating an order
-    order_id = request.form.get('order_id')
-    new_quantity = request.form.get('new_quantity')
+    # Get data from JSON request body
+    data = request.get_json()
+    order_id = data.get('order_id')
+    new_quantity = data.get('new_quantity')
 
     # Validate that the required fields are provided
     if not order_id or not new_quantity:
